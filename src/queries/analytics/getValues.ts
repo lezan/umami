@@ -18,11 +18,11 @@ async function relationalQuery(
   endDate: Date,
   search: string,
 ) {
-  const { rawQuery } = prisma;
+  const { rawQuery, getSearchSQL } = prisma;
   let searchQuery = '';
 
   if (search) {
-    searchQuery = `and ${column} LIKE {{search}}`;
+    searchQuery = getSearchSQL(column);
   }
 
   return rawQuery(

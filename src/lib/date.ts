@@ -34,6 +34,7 @@ import {
   addWeeks,
   subWeeks,
   endOfMinute,
+  isSameDay,
 } from 'date-fns';
 import { getDateLocale } from 'lib/lang';
 import { DateRange } from 'lib/types';
@@ -154,7 +155,7 @@ export function parseDateRange(value: string | object, locale = 'en-US'): DateRa
   switch (unit) {
     case 'hour':
       return {
-        startDate: subHours(startOfHour(now), num),
+        startDate: num ? subHours(startOfHour(now), num - 1) : startOfHour(now),
         endDate: endOfHour(now),
         offset: 0,
         num: num || 1,
@@ -163,8 +164,8 @@ export function parseDateRange(value: string | object, locale = 'en-US'): DateRa
       };
     case 'day':
       return {
-        startDate: subDays(startOfDay(now), num),
-        endDate: subDays(endOfDay(now), num ? 1 : 0),
+        startDate: num ? subDays(startOfDay(now), num - 1) : startOfDay(now),
+        endDate: endOfDay(now),
         unit: num ? 'day' : 'hour',
         offset: 0,
         num: num || 1,
@@ -172,8 +173,10 @@ export function parseDateRange(value: string | object, locale = 'en-US'): DateRa
       };
     case 'week':
       return {
-        startDate: subWeeks(startOfWeek(now, { locale: dateLocale }), num),
-        endDate: subWeeks(endOfWeek(now, { locale: dateLocale }), num),
+        startDate: num
+          ? subWeeks(startOfWeek(now, { locale: dateLocale }), num - 1)
+          : startOfWeek(now, { locale: dateLocale }),
+        endDate: endOfWeek(now, { locale: dateLocale }),
         unit: 'day',
         offset: 0,
         num: num || 1,
@@ -181,8 +184,8 @@ export function parseDateRange(value: string | object, locale = 'en-US'): DateRa
       };
     case 'month':
       return {
-        startDate: subMonths(startOfMonth(now), num),
-        endDate: subMonths(endOfMonth(now), num ? 1 : 0),
+        startDate: num ? subMonths(startOfMonth(now), num - 1) : startOfMonth(now),
+        endDate: endOfMonth(now),
         unit: num ? 'month' : 'day',
         offset: 0,
         num: num || 1,
@@ -190,8 +193,8 @@ export function parseDateRange(value: string | object, locale = 'en-US'): DateRa
       };
     case 'year':
       return {
-        startDate: subYears(startOfYear(now), num),
-        endDate: subYears(endOfYear(now), num),
+        startDate: num ? subYears(startOfYear(now), num - 1) : startOfYear(now),
+        endDate: endOfYear(now),
         unit: 'month',
         offset: 0,
         num: num || 1,
@@ -270,35 +273,14 @@ export function getMinimumUnit(startDate: number | Date, endDate: number | Date)
   return 'year';
 }
 
-export function getDateFromString(str: string) {
-  const [ymd, hms] = str.split(' ');
-  const [year, month, day] = ymd.split('-');
-
-  if (hms) {
-    const [hour, min, sec] = hms.split(':');
-
-    return new Date(+year, +month - 1, +day, +hour, +min, +sec);
-  }
-
-  return new Date(+year, +month - 1, +day);
-}
-
 export function getDateArray(data: any[], startDate: Date, endDate: Date, unit: string) {
   const arr = [];
   const { diff, add, start } = DATE_FUNCTIONS[unit];
-  const n = diff(endDate, startDate) + 1;
+  const n = diff(endDate, startDate);
 
-  function findData(date: Date) {
-    const d = data.find(({ x }) => {
-      return start(getDateFromString(x)).getTime() === date.getTime();
-    });
-
-    return d?.y || 0;
-  }
-
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i <= n; i++) {
     const t = start(add(startDate, i));
-    const y = findData(t);
+    const y = data.find(({ x }) => start(new Date(x)).getTime() === t.getTime())?.y || 0;
 
     arr.push({ x: t, y });
   }
@@ -331,4 +313,27 @@ export function getLocalTime(t: string | number | Date) {
 export function getDateLength(startDate: Date, endDate: Date, unit: string | number) {
   const { diff } = DATE_FUNCTIONS[unit];
   return diff(endDate, startDate) + 1;
+}
+
+export function getCompareDate(compare: string, startDate: Date, endDate: Date) {
+  if (compare === 'yoy') {
+    return { startDate: subYears(startDate, 1), endDate: subYears(endDate, 1) };
+  }
+
+  const diff = differenceInMinutes(endDate, startDate);
+
+  return { startDate: subMinutes(startDate, diff), endDate: subMinutes(endDate, diff) };
+}
+
+export function getDayOfWeekAsDate(dayOfWeek: number) {
+  const startOfWeekDay = startOfWeek(new Date());
+  const daysToAdd = [0, 1, 2, 3, 4, 5, 6].indexOf(dayOfWeek);
+  let currentDate = addDays(startOfWeekDay, daysToAdd);
+
+  // Ensure we're not returning a past date
+  if (isSameDay(currentDate, startOfWeekDay)) {
+    currentDate = addDays(currentDate, 7);
+  }
+
+  return currentDate;
 }

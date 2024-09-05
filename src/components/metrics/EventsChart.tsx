@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
-import { Loading } from 'react-basics';
 import { colord } from 'colord';
 import BarChart from 'components/charts/BarChart';
-import { getDateArray } from 'lib/date';
-import { useLocale, useDateRange, useWebsiteEvents } from 'components/hooks';
+import { useLocale, useDateRange, useWebsiteEventsSeries } from 'components/hooks';
 import { CHART_COLORS } from 'lib/constants';
 import { renderDateLabels } from 'lib/charts';
 
@@ -13,9 +11,11 @@ export interface EventsChartProps {
 }
 
 export function EventsChart({ websiteId, className }: EventsChartProps) {
-  const [{ startDate, endDate, unit }] = useDateRange(websiteId);
+  const {
+    dateRange: { startDate, endDate, unit },
+  } = useDateRange(websiteId);
   const { locale } = useLocale();
-  const { data, isLoading } = useWebsiteEvents(websiteId);
+  const { data, isLoading } = useWebsiteEventsSeries(websiteId);
 
   const chartData = useMemo(() => {
     if (!data) return [];
@@ -29,10 +29,6 @@ export function EventsChart({ websiteId, className }: EventsChartProps) {
 
       return obj;
     }, {});
-
-    Object.keys(map).forEach(key => {
-      map[key] = getDateArray(map[key], startDate, endDate, unit);
-    });
 
     return {
       datasets: Object.keys(map).map((key, index) => {
@@ -49,12 +45,10 @@ export function EventsChart({ websiteId, className }: EventsChartProps) {
     };
   }, [data, startDate, endDate, unit]);
 
-  if (isLoading) {
-    return <Loading icon="dots" />;
-  }
-
   return (
     <BarChart
+      minDate={startDate.toISOString()}
+      maxDate={endDate.toISOString()}
       className={className}
       data={chartData}
       unit={unit}
